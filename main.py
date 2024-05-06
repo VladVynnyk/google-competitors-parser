@@ -5,17 +5,64 @@ from bs4 import BeautifulSoup
 from openpyxl import load_workbook
 from openpyxl import Workbook
 
+import asyncio
+import aiohttp
+import yarl
+from concurrent.futures import ThreadPoolExecutor
+
+
 def is_similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
-def parse_google_ads(url: str, name_of_product: str):
+async def make_async_request_to_google_product(session, url, semaphore):
+    async with semaphore:
+        new_url = yarl.URL(url, encoded=True)
+        header={
+            "User-Agent": "python-requests/2.31.0",
+            "Connection": "keep-alive",
+            "Content-Type": "text/json"
+            }
+        async with session.get(new_url, headers=header) as r:
+            if r.status == 429:
+                retry_after = int(r.headers.get("Retry-After", "1"))
+                print(f"Rate limit exceeded. Waiting for {retry_after} seconds before retrying.")
+                await asyncio.sleep(retry_after)
+                return await make_async_request_to_google_product(session, url, semaphore)
+            elif r.status != 200:
+                print("Status: ", r)
+                r.raise_for_status()
+            # elif r.status == 403:
+                # print(r)
+            # result = await r.json()
+            print("---------------------------------")
+            print(r.text)
+            return r
+
+async def make_requests_to_all_products(sesison, urls, semaphore):
+    tasks = []
+    for url in urls:
+        task = asyncio.create_task(make_async_request_to_google_product(sesison, url, semaphore=semaphore))
+        tasks.append(task)
+    res = await asyncio.gather(*tasks)
+    return res
+
+async def make_requests_to_google_search(urls: list):
+    rate_limit = 5
+    semaphore = asyncio.Semaphore(rate_limit)
+    async with aiohttp.ClientSession() as session:
+        htmls = await make_requests_to_all_products(session, urls, semaphore)
+    return htmls
+
+def parse_google_ads(url: str):
+    print("URL: ", url)
+    print("_____________________________________: ", url)
     response = requests.get(url)
- 
+        
     if response.status_code == 200:
             html_content = response.text
- 
+
             soup = BeautifulSoup(html_content, 'html.parser')
- 
+
             ads_pannel = soup.find_all("div", id="bGmlqc")
             ads_name_headers = soup.html.find_all('h4', class_='fol5Z')
             ads_prices = soup.find_all('div', class_='pSNTSe')
@@ -79,8 +126,8 @@ def parse_google_ads(url: str, name_of_product: str):
                     print(item, product_info[item])
                     print("Y:", y)
                     if y == product_info[item][0][1]:
-                        print("How similar: ", is_similar(name_of_product, item))
-                        if is_similar(name_of_product, item) >= 0.3:
+                        # print("How similar: ", is_similar(name_of_product, item))
+                        # if is_similar(name_of_product, item) >= 0.3:
                             smallest_products.append(item)
 
             print("--------------------------------")
@@ -105,17 +152,18 @@ def main():
     source_sheet = workbook.active
 
     products = []
-
-    # for col in source_sheet.iter_cols(min_row=2, max_row=58, min_col=5, max_col=5):
-    #     for cell in col:
-    #         current_product_name = cell.value
-    #         edited_product_name = cell.value.replace(" ", "+")
-    #         url = "https://www.google.com/search?client=opera&q="+edited_product_name+"&sourceid=opera&ie=UTF-8&oe=UTF-8"
-    #         print(edited_product_name)
-    #         print(url)
-    #         info = parse_google_ads(url)
-    #         products.append(info)
     
+    product_urls = [] # array with urls to google products
+    for col in source_sheet.iter_cols(min_row=2, max_row=58, min_col=5, max_col=5):
+        for cell in col:
+            current_product_name = cell.value
+            edited_product_name = current_product_name.replace(" ", "+")
+            url = "https://www.google.com/search?client=opera&q="+edited_product_name+"&sourceid=opera&ie=UTF-8&oe=UTF-8"
+            # url = "https://www.google.com/search?q="+edited_product_name
+            product_urls.append(url)
+    
+    # print("URLS: ", product_urls)
+
     row_index = 2 
     for col in source_sheet.iter_cols(min_row=2, max_row=58, min_col=5, max_col=5):
         for cell in col:
@@ -124,33 +172,45 @@ def main():
             url = "https://www.google.com/search?client=opera&q="+edited_product_name+"&sourceid=opera&ie=UTF-8&oe=UTF-8"
             print(edited_product_name)
             print(url)
-            info = parse_google_ads(url, cell.value)
+
+            # info = parse_google_ads(product_urls, cell.value)
+
+
+            # loop = asyncio.get_event_loop()
+            # loop = asyncio.new_event_loop()
+            # asyncio.set_event_loop(loop)
+            # google_results = loop.run_until_complete(make_requests_to_google_search(product_urls))
 
             # Вставка значень info в клітинки J, K, L
-            print("info:", info)
-            if info != None and len(info)>=1:
-                source_sheet.cell(row=row_index, column=10).value = info[0][0]  # Значення info[0] у стовпець J
-                source_sheet.cell(row=row_index, column=11).value = info[0][1]  # Значення info[0] у стовпець J
-                print("SOURCE: ", info[0][0])
-                print("PRICE: ", info[0][1])
-                if len(info) == 2 or len(info) >= 2:
-                    source_sheet.cell(row=row_index, column=12).value = info[1][0]  # Значення info[1] у стовпець K
-                    source_sheet.cell(row=row_index, column=13).value = info[1][1]  # Значення info[1] у стовпець K
-                    print("SOURCE: ", info[1][0])
-                    print("PRICE: ", info[1][1])
-                if len(info) >= 3:
-                    source_sheet.cell(row=row_index, column=14).value = info[2][0]  # Значення info[2] у стовпець L
-                    source_sheet.cell(row=row_index, column=15).value = info[2][1]  # Значення info[2] у стовпець L
-                    print("SOURCE: ", info[2][0])
-                    print("PRICE: ", info[2][1])
-                row_index += 1
-            else:
-                row_index += 1
-                continue
+            # print("info:", google_results)
+            # print("info:", info)
+            # if info != None and len(info)>=1:
+            #     source_sheet.cell(row=row_index, column=10).value = info[0][0]  # Значення info[0] у стовпець J
+            #     source_sheet.cell(row=row_index, column=11).value = info[0][1]  # Значення info[0] у стовпець J
+            #     print("SOURCE: ", info[0][0])
+            #     print("PRICE: ", info[0][1])
+            #     if len(info) == 2 or len(info) >= 2:
+            #         source_sheet.cell(row=row_index, column=12).value = info[1][0]  # Значення info[1] у стовпець K
+            #         source_sheet.cell(row=row_index, column=13).value = info[1][1]  # Значення info[1] у стовпець K
+            #         print("SOURCE: ", info[1][0])
+            #         print("PRICE: ", info[1][1])
+            #     if len(info) >= 3:
+            #         source_sheet.cell(row=row_index, column=14).value = info[2][0]  # Значення info[2] у стовпець L
+            #         source_sheet.cell(row=row_index, column=15).value = info[2][1]  # Значення info[2] у стовпець L
+            #         print("SOURCE: ", info[2][0])
+            #         print("PRICE: ", info[2][1])
+            #     row_index += 1
+            # else:
+            #     row_index += 1
+            #     continue
 
             # row_index += 1  # Збільшення індексу рядка для наступної вставки
+    MAX_THREADS = 4
+    with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
+        titles = list(executor.map(parse_google_ads, product_urls))
 
-    workbook.save('./Testfile.xlsx')
+    print(titles)
+    # workbook.save('./Testfile.xlsx')
 
 
 main()

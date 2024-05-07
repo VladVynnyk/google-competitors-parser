@@ -50,3 +50,6 @@ def format_price(input_string):
     
     return formatted_string
 
+
+def create_prompt_for_ai(base_product: str, all_products: list):
+    pass

@@ -1,3 +1,4 @@
+import re
 import random
 
 
@@ -14,7 +15,7 @@ user_agent_list = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0; Trident/4.0)",
 "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0)",
 "Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.0; Trident/5.0)",
-"Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)",
+# "Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)",
 "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)",
 "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; Trident/6.0)",
 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.2365.80",
@@ -37,3 +38,15 @@ user_agent_list = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
 def get_random_user_agent():
     return user_agent_list[random.randint(0, len(user_agent_list)-1)]
+
+
+
+def format_price(input_string):
+    # Remove the word 'грн' and anything following it
+    clean_string = re.sub(r'\sгрн.*', '', input_string)
+    
+    # Replace comma with a dot
+    formatted_string = clean_string.replace(',', '.')
+    
+    return formatted_string
+

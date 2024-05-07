@@ -163,6 +163,14 @@ def parse_google_ads(url: str, name_of_product: str):
 
 
 def main():
+    # Algorithm for using chatGPT
+    # 1. Here create instance of openai
+    # 2. Add instance to params of function parse_google_ads
+    # 3. In this function create prompt for retrieving most relevant products
+    # 4. Create request
+    # 5. Handle request (using request add most relevant product)
+    # 6. Write to excel
+
     workbook = load_workbook('./Testfile.xlsx')
     # workbook = load_workbook('./Оборотні_профільних_ціни_конкурентів_для_HF.xlsx')
     source_sheet = workbook.active

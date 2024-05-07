@@ -9,7 +9,7 @@ from openpyxl import Workbook
 
 from urllib.parse import urlparse, parse_qs
 
-from utils import get_random_user_agent
+from utils import get_random_user_agent, format_price
 
 def is_similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
@@ -45,6 +45,9 @@ def parse_google_ads(url: str, name_of_product: str):
     # print("STATUS: ", response.headers)
     # print("STATUS: ", response.status_code)
 
+
+    # with open("demofile2.txt", "w", encoding="utf-8") as f:
+    #     f.write(response.text)
  
     if response.status_code == 200:
             html_content = response.text
@@ -60,13 +63,13 @@ def parse_google_ads(url: str, name_of_product: str):
             ads_sites = soup.find_all("div", class_="BZuDuc")
 
 
-            ads_pannel = soup.find_all("div", id="c3mZkd")
-            ads_name_headers = soup.html.find_all('span', class_='pymv4e')
+            ads_pannel = soup.find_all("div", id="top-pla-group-inner")
+            ads_name_headers = soup.html.find_all('a', class_='pla-unit-title-link')
             ads_prices = soup.find_all('div', class_='T4OwTb')
             ads_items = soup.find_all("div", class_='pla-unit-container')
             ads_links = soup.find_all("a", class_="pla-unit-img-container-link")
             # ads_images = soup.find_all("div", class_="Gor6zc")
-            ads_sites = soup.find_all("div", class_="zPEcBd VZqTOd")
+            ads_sites = soup.find_all("div", class_="LbUacb")
 
             
 
@@ -77,6 +80,7 @@ def parse_google_ads(url: str, name_of_product: str):
 
             print("ADS LINKS: ", ads_pannel)
             print("ADS LINKS 2: ", ads_links)
+            print("ADS PRICES: ", ads_prices)
             for link in ads_links:
                 print("EXTRACTED PRODUCT LINK: ", extract_product_link(link['href']))
                 print("SINGLE LINK: ", link['href'])
@@ -92,7 +96,10 @@ def parse_google_ads(url: str, name_of_product: str):
 
 
             for item in ads_prices:
-                current_price = item.string
+                # current_price = item.string
+                current_price = item.find('span').text
+                formatted_price = format_price(current_price)
+                print("Current price: ", formatted_price)
                 [new_price, another_value] = current_price.split(",")
                 numeric_part = ''.join(char for char in new_price if char.isdigit() or char == '.') 
                 product_prices.append(float(numeric_part))
@@ -177,10 +184,10 @@ def main():
             print(url)
             info = parse_google_ads(url, cell.value)
 
+            print("info:", info)
             time.sleep(10)
 
             # Вставка значень info в клітинки J, K, L
-            print("info:", info)
             if info != None and len(info)>=1:
                 # source_sheet.cell(row=row_index, column=10).value = info[0][0]  # Значення info[0] у стовпець J
                 # source_sheet.cell(row=row_index, column=11).value = info[0][2]  # Значення info[0] у стовпець J

@@ -1,3 +1,5 @@
+import time
+
 from difflib import SequenceMatcher
 import requests
 import heapq
@@ -6,6 +8,8 @@ from openpyxl import load_workbook
 from openpyxl import Workbook
 
 from urllib.parse import urlparse, parse_qs
+
+from utils import get_random_user_agent
 
 def is_similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
@@ -22,7 +26,25 @@ def extract_product_link(ad_url):
 
 
 def parse_google_ads(url: str, name_of_product: str):
-    response = requests.get(url)
+    # headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'}
+
+    # headers = {
+    #     'User-agent':
+    #     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.102 Safari/537.36 Edge/18.19582'
+    # }
+
+    user_agent = get_random_user_agent()
+
+    print("user-agent: ", user_agent)
+
+    headers = {'User-agent': user_agent}
+
+
+    response = requests.get(url, headers=headers)
+
+    # print("STATUS: ", response.headers)
+    # print("STATUS: ", response.status_code)
+
  
     if response.status_code == 200:
             html_content = response.text
@@ -36,6 +58,15 @@ def parse_google_ads(url: str, name_of_product: str):
             ads_links = soup.find_all("a", class_="vGg33Ymfm0s__pla-unit-link")
             ads_images = soup.find_all("div", class_="Gor6zc")
             ads_sites = soup.find_all("div", class_="BZuDuc")
+
+
+            ads_pannel = soup.find_all("div", id="c3mZkd")
+            ads_name_headers = soup.html.find_all('span', class_='pymv4e')
+            ads_prices = soup.find_all('div', class_='T4OwTb')
+            ads_items = soup.find_all("div", class_='pla-unit-container')
+            ads_links = soup.find_all("a", class_="pla-unit-img-container-link")
+            # ads_images = soup.find_all("div", class_="Gor6zc")
+            ads_sites = soup.find_all("div", class_="zPEcBd VZqTOd")
 
             
 
@@ -81,7 +112,7 @@ def parse_google_ads(url: str, name_of_product: str):
                     product_info[name] = []
                 product_info[name].append([site, price, link])
 
-
+            print("INFORMATION: ", product_info)
             # STEPS: 
             # 1.Search for the cheapest products on the ads
             # 2.Write them to excel
@@ -125,32 +156,28 @@ def parse_google_ads(url: str, name_of_product: str):
 
 
 def main():
-    # workbook = load_workbook('./Testfile.xlsx')
-    workbook = load_workbook('./Оборотні_профільних_ціни_конкурентів_для_HF.xlsx')
+    workbook = load_workbook('./Testfile.xlsx')
+    # workbook = load_workbook('./Оборотні_профільних_ціни_конкурентів_для_HF.xlsx')
     source_sheet = workbook.active
+
+    max_row = source_sheet.max_row
 
     products = []
 
-    # for col in source_sheet.iter_cols(min_row=2, max_row=58, min_col=5, max_col=5):
-    #     for cell in col:
-    #         current_product_name = cell.value
-    #         edited_product_name = cell.value.replace(" ", "+")
-    #         url = "https://www.google.com/search?client=opera&q="+edited_product_name+"&sourceid=opera&ie=UTF-8&oe=UTF-8"
-    #         print(edited_product_name)
-    #         print(url)
-    #         info = parse_google_ads(url)
-    #         products.append(info)
     
     row_index = 2 
-    # for col in source_sheet.iter_cols(min_row=2, max_row=58, min_col=5, max_col=5):
-    for col in source_sheet.iter_cols(min_row=2, max_row=242, min_col=3, max_col=3):
+    for col in source_sheet.iter_cols(min_row=2, max_row=max_row, min_col=5, max_col=5):
+    # for col in source_sheet.iter_cols(min_row=2, max_row=242, min_col=3, max_col=3):
         for cell in col:
             current_product_name = cell.value
             edited_product_name = current_product_name.replace(" ", "+")
-            url = "https://www.google.com/search?client=opera&q="+edited_product_name+"&sourceid=opera&ie=UTF-8&oe=UTF-8"
+            url = "https://www.google.com/search?q="+edited_product_name
+            # url = "https://www.google.com/search?client=firefox-b-d&q="+edited_product_name
             print(edited_product_name)
             print(url)
             info = parse_google_ads(url, cell.value)
+
+            time.sleep(10)
 
             # Вставка значень info в клітинки J, K, L
             print("info:", info)

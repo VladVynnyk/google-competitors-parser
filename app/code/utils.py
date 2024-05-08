@@ -1,5 +1,20 @@
 import re
 import random
+from difflib import SequenceMatcher
+from urllib.parse import urlparse, parse_qs
+
+def is_similar(a, b):
+    return SequenceMatcher(None, a, b).ratio()
+
+def extract_product_link(ad_url):
+    parsed_url = urlparse(ad_url)
+    query_params = parse_qs(parsed_url.query)
+    if 'adurl' in query_params:
+        product_link = query_params['adurl'][0]
+        print("Product link: ", product_link)
+        return product_link
+    else:
+        return None
 
 
 user_agent_list = ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",

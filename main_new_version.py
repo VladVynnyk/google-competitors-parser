@@ -4,12 +4,19 @@ from difflib import SequenceMatcher
 import requests
 import heapq
 from bs4 import BeautifulSoup
+from dotenv import dotenv_values
 from openpyxl import load_workbook
 from openpyxl import Workbook
 
+from openai import OpenAI
+
 from urllib.parse import urlparse, parse_qs
 
-from utils import get_random_user_agent, format_price
+from utils import get_random_user_agent, format_price, create_messages_for_ai
+
+
+config = dotenv_values(".env")
+CHATGPT_KEY = config["CHATGPT_KEY"]
 
 def is_similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
@@ -25,7 +32,7 @@ def extract_product_link(ad_url):
         return None
 
 
-def parse_google_ads(url: str, name_of_product: str):
+def parse_google_ads(url: str, name_of_product: str, client_of_ai):
     # headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.100 Safari/537.36'}
 
     # headers = {
@@ -53,14 +60,15 @@ def parse_google_ads(url: str, name_of_product: str):
             html_content = response.text
  
             soup = BeautifulSoup(html_content, 'html.parser')
- 
-            ads_pannel = soup.find_all("div", id="bGmlqc")
-            ads_name_headers = soup.html.find_all('h4', class_='fol5Z')
-            ads_prices = soup.find_all('div', class_='pSNTSe')
-            ads_items = soup.find_all("div", class_='pla-unit-container')
-            ads_links = soup.find_all("a", class_="vGg33Ymfm0s__pla-unit-link")
-            ads_images = soup.find_all("div", class_="Gor6zc")
-            ads_sites = soup.find_all("div", class_="BZuDuc")
+
+            # it's old selectors
+            # ads_pannel = soup.find_all("div", id="bGmlqc")
+            # ads_name_headers = soup.html.find_all('h4', class_='fol5Z')
+            # ads_prices = soup.find_all('div', class_='pSNTSe')
+            # ads_items = soup.find_all("div", class_='pla-unit-container')
+            # ads_links = soup.find_all("a", class_="vGg33Ymfm0s__pla-unit-link")
+            # ads_images = soup.find_all("div", class_="Gor6zc")
+            # ads_sites = soup.find_all("div", class_="BZuDuc")
 
 
             ads_pannel = soup.find_all("div", id="top-pla-group-inner")
@@ -68,7 +76,7 @@ def parse_google_ads(url: str, name_of_product: str):
             ads_prices = soup.find_all('div', class_='T4OwTb')
             ads_items = soup.find_all("div", class_='pla-unit-container')
             ads_links = soup.find_all("a", class_="pla-unit-img-container-link")
-            # ads_images = soup.find_all("div", class_="Gor6zc")
+            ads_images = soup.find_all("div", class_="Gor6zc")
             ads_sites = soup.find_all("div", class_="LbUacb")
 
             
@@ -78,21 +86,25 @@ def parse_google_ads(url: str, name_of_product: str):
             product_sites = []
             product_links = []
 
-            print("ADS LINKS: ", ads_pannel)
-            print("ADS LINKS 2: ", ads_links)
-            print("ADS PRICES: ", ads_prices)
+            # print("ADS LINKS: ", ads_pannel)
+            # print("ADS LINKS 2: ", ads_links)
+            # print("ADS NAMES: ", ads_name_headers)
+            for a_tag in ads_name_headers:
+                current_name = a_tag.find("span").text
+                print("CURRENT NAME: ", current_name)
+                product_names.append(current_name)
+
+
             for link in ads_links:
                 print("EXTRACTED PRODUCT LINK: ", extract_product_link(link['href']))
                 print("SINGLE LINK: ", link['href'])
                 current_link = link['href']
                 product_links.append(current_link)
 
-            for item in ads_images:
-                # print("IMAGES: -------------------------")
-                current_name = item.img['alt']
-                current_name[20:]
-                # print(current_name[18:])
-                product_names.append(current_name[18:])
+            # for item in ads_images:
+            #     current_name = item.img['alt']
+            #     current_name[20:]
+            #     product_names.append(current_name[18:])
 
 
             for item in ads_prices:
@@ -120,19 +132,24 @@ def parse_google_ads(url: str, name_of_product: str):
                 product_info[name].append([site, price, link])
 
             print("INFORMATION: ", product_info)
-            # STEPS: 
-            # 1.Search for the cheapest products on the ads
-            # 2.Write them to excel
-            # 3.Search for the products on the iherb
+
+            # Here we should understand, which products are relevant
+            messages = create_messages_for_ai(name_of_product, product_names)
+            print("MESSAGES: ", messages)
+            if len(messages) > 0: 
+                completion = client_of_ai.chat.completions.create(
+                    model="gpt-3.5-turbo-0125",
+                    messages=messages
+                )            
             
-            # 1.
-            # Commented this section ---------------
-            # workbook = load_workbook('D:\TEST OF MY JOB\EXCEL\Competitors parser\Каста ціни – копія.xlsx')
-            # source_sheet = workbook.active
-            # --------------------------------------
+            relevant_products = completion.choices[0].message.content
+            print("Relevant products: ", relevant_products)
+            print("Relevant products: ", type(relevant_products))
+            print("Relevant products: ", type(list(relevant_products)))
 
 
-            smallest_values = heapq.nsmallest(5, product_prices) # by default 3
+            smallest_values = sorted(product_prices, reverse=True)
+            # smallest_values = heapq.nsmallest(5, product_prices) # by default 3
             # print("Smallest values: ", smallest_values)
 
             smallest_products = []
@@ -142,8 +159,10 @@ def parse_google_ads(url: str, name_of_product: str):
                     # print("Y:", y)
                     if y == product_info[item][0][1]:
                         # print("How similar: ", is_similar(name_of_product, item))
-                        if is_similar(name_of_product, item) >= 0.3:
-                            smallest_products.append(item)
+                        if item in list(relevant_products):
+                            if item not in smallest_products:
+                                smallest_products.append(item)
+                            else: continue
 
             print("--------------------------------")
             print("Cheapest products: ", smallest_products)
@@ -171,6 +190,8 @@ def main():
     # 5. Handle request (using request add most relevant product)
     # 6. Write to excel
 
+    client = OpenAI(api_key=CHATGPT_KEY)
+
     workbook = load_workbook('./Testfile.xlsx')
     # workbook = load_workbook('./Оборотні_профільних_ціни_конкурентів_для_HF.xlsx')
     source_sheet = workbook.active
@@ -190,7 +211,7 @@ def main():
             # url = "https://www.google.com/search?client=firefox-b-d&q="+edited_product_name
             print(edited_product_name)
             print(url)
-            info = parse_google_ads(url, cell.value)
+            info = parse_google_ads(url, cell.value, client_of_ai=client)
 
             print("info:", info)
             time.sleep(10)

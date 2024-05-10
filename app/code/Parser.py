@@ -195,7 +195,7 @@ class Parser:
                 # Here we should understand, which products are relevant
                 messages = create_messages_for_ai(name_of_product, product_names)
                 print("MESSAGES: ", messages)
-                if len(messages) > 0: 
+                if len(messages) >= 0: 
                     completion = client_of_ai.chat.completions.create(
                         model="gpt-3.5-turbo-0125",
                         messages=messages

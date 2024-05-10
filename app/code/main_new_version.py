@@ -46,7 +46,7 @@ def main():
             print("info:", info)
             print("info:", len(info))
             # time.sleep(10)
-            
+
             if info is not None and len(info) >= 1:
                 column_index = 10  # Starting column index
                 for key, value in info.items():
@@ -67,7 +67,7 @@ def main():
 
 
     # workbook.save('./Testfile.xlsx')
-    workbook.save('./Оборотні_профільних_ціни_конкурентів_для_HF.xlsx')
+    # workbook.save('./Оборотні_профільних_ціни_конкурентів_для_HF.xlsx')
 
 
 main()

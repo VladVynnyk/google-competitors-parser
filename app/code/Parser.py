@@ -10,8 +10,15 @@ class Parser:
     def __init__(self):
         pass    
 
+    # it's old selectors
+    # ads_pannel = soup.find_all("div", id="bGmlqc")
+    # ads_name_headers = soup.html.find_all('h4', class_='fol5Z')
+    # ads_prices = soup.find_all('div', class_='pSNTSe')
+    # ads_items = soup.find_all("div", class_='pla-unit-container')
+    # ads_links = soup.find_all("a", class_="vGg33Ymfm0s__pla-unit-link")
+    # ads_images = soup.find_all("div", class_="Gor6zc")
+    # ads_sites = soup.find_all("div", class_="BZuDuc")
 
-    # This method returns ads with lowest price
     def parse_google_ads(self, url: str, name_of_product: str, client_of_ai):
         user_agent = get_random_user_agent()
 
@@ -22,9 +29,6 @@ class Parser:
 
         response = requests.get(url, headers=headers)
 
-        # with open("demofile2.txt", "w", encoding="utf-8") as f:
-        #     f.write(response.text)
-    
         if response.status_code == 200:
                 html_content = response.text
     

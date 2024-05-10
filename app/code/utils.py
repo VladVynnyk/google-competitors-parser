@@ -65,8 +65,6 @@ def format_price(input_string):
 
 def create_messages_for_ai(base_product: str, all_products: list):
     string_of_products = str(all_products)
-    # for product in all_products:
-    #     string_of_products = string_of_products + product
 
     prompt = "Using name of product: '{base_name}' retrieve most relevant products from list. List: {products}.".format(base_name=base_product, products=string_of_products)
 

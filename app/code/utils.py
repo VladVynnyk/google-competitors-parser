@@ -73,3 +73,15 @@ def create_messages_for_ai(base_product: str, all_products: list):
         {"role": "user", "content": prompt}
     ]
     return messages
+
+
+def create_message_for_getting_one_product_from_ai(base_product: str, all_products: list):
+    string_of_products = str(all_products)
+
+    prompt = "Using name of product: '{base_name}' retrieve only one the most relevant product from list. List: {products}.".format(base_name=base_product, products=string_of_products)
+
+    messages=[
+        # {"role": "system", "content": "You are a language model, which can classify relevant and irrelevant terms. In response you should add only list of relevant terms, which will be in square brackets, nothing else."},
+        {"role": "user", "content": prompt}
+    ]
+    return messages
